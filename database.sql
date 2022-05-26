@@ -6,7 +6,6 @@ drop table if exists `student`;
 create table `student`
 (
     `id` int NOT NULL AUTO_INCREMENT,
-    `username` varchar(255),
     `password` varchar(255),
     `name` varchar(255),
     `age` int,
