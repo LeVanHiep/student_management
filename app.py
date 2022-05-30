@@ -1,78 +1,66 @@
 from flask import Flask, request
-from flask_jwt_extended import JWTManager, jwt_required, create_access_token , get_jwt_identity
-import json
-import validate
-from model import student, log
+from model import Student
+from redis_om.model import NotFoundError
+from pydantic import ValidationError
 
-app = Flask(__name__)  
-jwt = JWTManager(app)
-app.config["JWT_SECRET_KEY"] = "chuoisieubimat"
+app = Flask(__name__) 
 
-
-
-#Login
-@app.route('/login', methods=['GET'])
-def login_page():
-    return "Login page"
-
-@app.route('/login', methods=['POST'])
-def login():
-    data = request.json
-    return student.login(data)
-
-
-#Get all students
+#Homepage
 @app.route('/', methods=['GET'])
-@jwt_required()
-def get():
-    return student.get_all()
-
+def login_page():
+    return "Student Management Redis - Homepage"
 
 #Get a student by ID
 @app.route('/<id>', methods=['GET'])
-@jwt_required()
 def get_one(id):
-    return student.get_one(id)
+    try:
+        person = Student.get(id)
+        return {"msg": "Success", "status": 1, "data": [person.dict()]}
+    except NotFoundError: #NotFoundError did not return anything
+        return {"msg":  "NotFoundError", "status": 0, "data": []}
 
-#Create a student
+
+#Create a student and return its ID
 @app.route('/', methods=['POST'])
-@jwt_required()
 def post():
-    data = request.json
-    result = student.post(data)
-    if result["status"] == 1:
-        return log.post(get_jwt_identity(), "post", json.dumps(data, ensure_ascii=False), result["data"][0], "student")
+    try:
+        new_person = Student(**request.json)
+        new_person.save()
+        return {"msg": "Success", "status": 1, "data": [new_person.pk]}
+    except (Exception, ValidationError) as error_message:
+        return {"msg":  str(error_message), "status": 0, "data": []}
 
-    return result
 
-
-#Update a student by ID and return 1 if success
+#Update a student by ID
 @app.route('/<id>', methods=['PUT'])
-@jwt_required()
 def put(id):
-    data = request.json
-    result = student.put(id, data)
-    if result["status"] == 1:
-        return log.post(get_jwt_identity(), "put", json.dumps(data, ensure_ascii=False), id, "student")
+    try:
+        student = Student.get(id)
+        changes = request.json
+        print(changes)
+        for key, value in changes.items():
+            setattr(student, key, value)
+        student.save()
+        return {"msg": "Success", "status": 1, "data": []}
+    except (Exception, NotFoundError, ValidationError) as error_message:
+        if len(str(error_message)) == 0:  #NotFoundError did not return anything
+            return {"msg": "NotFoundError", "status": 0, "data": []}
+        else:
+            return {"msg": str(error_message), "status": 0, "data": []}
 
-    return result
 
-#Delete a student by ID and return 1 if success
+#Delete a student by ID
 @app.route('/<id>', methods=['DELETE'])
-@jwt_required()
 def delete(id):
-    result = student.remove(id)
-    if result["status"] == 1:
-        return log.post(get_jwt_identity(), "delete", "", id, "student")
+    try:
+        result = Student.delete(id)
+        if result == 1:
+            return {"msg": "Success", "status": 1, "data": []}
+        else:
+            return {"msg": "NotFoundError", "status": 0, "data": []}
 
-    return result
-
-
-#Get all logs
-@app.route('/logs', methods=['GET'])
-@jwt_required()
-def get_all_logs():
-    return log.get_all()
+    except Exception as error_message:
+        return {"msg": str(error_message), "status": 0, "data": []}
 
 
 if __name__ == "__main__":

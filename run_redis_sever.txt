@@ -1,0 +1,9 @@
+Open Ubuntu terminal
+Start Redis sever:                                      sudo service redis-server start
+Enter ubuntu password:                                  12345678
+Open redis-cli for testing (default database is 0):     redis-cli
+Test connection:                                        ping
+Basic set a object:                                     set object_name objetc_value
+Basic get a objetc:                                     get object_name
+Exit redis-cli(command line interface)                  exit
+Shutdown Redis sever:                                   redis-cli shutdown
