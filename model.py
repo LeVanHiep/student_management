@@ -1,13 +1,26 @@
-from redis_om import HashModel, Field, Migrator, JsonModel
+from redis_om import Field, Migrator, JsonModel
+from typing import List
 
-class Student(HashModel):
+class Address(JsonModel):
+    unit : str = Field(index=True)
+    street : str = Field(index=True)
+    ward : str = Field(index=True)
+    district : str = Field(index=True)
+    city : str = Field(index=True)
+    country : str = Field(index=True)
+
+
+class Student(JsonModel):
     username : str = Field(index=True)  #set index to search with this attribute
     password : str
-    name : str
-    gender : str
-    grade : str
-    school_year : int
-    age : int
+    name : str = Field(index=True, full_text_search=True)
+    gender : str = Field(index=True)
+    grade : str = Field(index=True)
+    school_year : int = Field(index=True)
+    age : int = Field(index=True)
+    permanent_address : Address
+    birthplace : Address
+    prize: List[str] = Field(index=True)
 
 # Before running queries, we need to run migrations to set up the
 # indexes that Redis OM will use. You can also use the `migrate`
@@ -15,18 +28,10 @@ class Student(HashModel):
 Migrator().run()
 
 #print(Student.get("01G42BX3BDBY4SPSS1A8GC8RC8"))
-
-# print("add a student to database")
-# a = Student(username= "1", password = "1", name = "1", gender = "1", grade = "1", school_year = 1, age = 1)
-# a = Student(username= "3", password = "1", name = "1", gender = "1", grade = "1", school_year = 1, age = 1)
-# a = Student(username= "4", password = "1", name = "1", gender = "1", grade = "1", school_year = 1, age = 1)
-# a = Student(username= "5", password = "1", name = "1", gender = "1", grade = "1", school_year = 1, age = 1)
-# a = Student(username= "6", password = "1", name = "1", gender = "1", grade = "1", school_year = 1, age = 1)
-
 # print("Success create a new student with id ", a.pk)
 
 # print("save model to redis")
-# a.save()
+
 
 # Expire the model after 2 mins (120 seconds)
 #a.expire(120)
@@ -36,5 +41,8 @@ Migrator().run()
 #      print(Student.get('01G41Y2W7ZPCPJWWM8587J3SC0'))
 # except Exception as e:
 #     print(e)
-# print(Student.find(Student.password != "1"  ).all())
+# print("people: ")
+# people = Student.find().all()
+# for i in people:
+#     print(i)
 
