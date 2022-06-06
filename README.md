@@ -1,7 +1,7 @@
 ## Student_management
 
 ### Sumary
-This is 4 basic APIs (GET, PUSH, POST, DELETE) using Flask and Redis
+This is basic APIs using Flask and Redis
 
 ### Quickstart
 

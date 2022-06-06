@@ -1,7 +1,5 @@
 from flask import Flask, request
 from model import Student
-from redis_om.model import NotFoundError
-from pydantic import ValidationError
 
 app = Flask(__name__) 
 
@@ -14,127 +12,63 @@ def build_results(data):
 
 #Get all students
 @app.route('/', methods=['GET'])
-def get_all():
-    try:
-        students = Student.find()
-        return {"msg": "Success", "status": 1, "data": build_results(students)}
-    except NotFoundError: #NotFoundError did not return anything
-        return {"msg":  "NotFoundError", "status": 0, "data": []}
+def homepage():
+    return "Homepage"
 
 
 #Get a student by ID
 @app.route('/<id>', methods=['GET'])
-def get_one(id):
-    try:
-        person = Student.get(id)
-        return {"msg": "Success", "status": 1, "data": [person.dict()]}
-    except NotFoundError: #NotFoundError did not return anything
-        return {"msg":  "NotFoundError", "status": 0, "data": []}
+def GetByID(id):
+    return Student.GetByID(id)
 
-#Find students by exact username
+#Find a student by username
 @app.route('/find/username/<value>', methods=['GET'])
-def find_username(value):
-    try:
-        students = Student.find(Student.username == value)
-        return {"msg": "Success", "status": 1, "data": build_results(students)}
-    except (Exception, NotFoundError, ValidationError) as error_message:
-        if len(str(error_message)) == 0:  #NotFoundError did not return anything
-            return {"msg": "NotFoundError", "status": 0, "data": []}
-        else:
-            return {"msg": str(error_message), "status": 0, "data": []}
+def GetByUsername(value):
+    return Student.GetByUsername(value)
 
-#Find students by name (full-text search)
+#Find students by name
 @app.route('/find/name/<value>', methods=['GET'])
-def find_name(value):
-    try:
-        students = Student.find(Student.name % value)
-        return {"msg": "Success", "status": 1, "data": build_results(students)}
-    except (Exception, NotFoundError, ValidationError) as error_message:
-        if len(str(error_message)) == 0:  #NotFoundError did not return anything
-            return {"msg": "NotFoundError", "status": 0, "data": []}
-        else:
-            return {"msg": str(error_message), "status": 0, "data": []}
+def GetByName(value):
+    return Student.GetByName(value)
 
 #Find students by age in range 
 @app.route('/find/age/<int:min_value>/<int:max_value>', methods=['GET'])
-def find_age(min_value, max_value):
-    try:
-        students = Student.find((Student.age >= min_value) & (Student.age <= max_value))
-        return {"msg": "Success", "status": 1, "data": build_results(students)}
-    except (Exception, NotFoundError, ValidationError) as error_message:
-        if len(str(error_message)) == 0:  #NotFoundError did not return anything
-            return {"msg": "NotFoundError", "status": 0, "data": []}
-        else:
-            return {"msg": str(error_message), "status": 0, "data": []}
+def GetByAge(min_value, max_value):
+    return Student.GetByAge(min_value, max_value)
 
 
 #Find students by a prize in their prize list
 @app.route('/find/prize/<value>', methods=["GET"])
-def find_prize(value):
-    try:
-        students = Student.find(Student.prize << value)
-        return {"msg": "Success", "status": 1, "data": build_results(students)}
-    except (Exception, NotFoundError, ValidationError) as error_message:
-        if len(str(error_message)) == 0:  #NotFoundError did not return anything
-            return {"msg": "NotFoundError", "status": 0, "data": []}
-        else:
-            return {"msg": str(error_message), "status": 0, "data": []}
+def GetByPrize(value):
+    return Student.GetByPrize(value)
 
 
-#Find students by birthplace city
+#Find students by birth address city
 @app.route('/find/city/<value>', methods=["GET"])
-def find_city(value):
-    try:
-        students = Student.find(Student.birthplace.city == value)
-        return {"msg": "Success", "status": 1, "data": build_results(students)}
-    except (Exception, NotFoundError, ValidationError) as error_message:
-        if len(str(error_message)) == 0:  #NotFoundError did not return anything
-            return {"msg": "NotFoundError", "status": 0, "data": []}
-        else:
-            return {"msg": str(error_message), "status": 0, "data": []}
+def GetByBirthAddressCity(value):
+    return Student.GetByBirthAddressCity(value)
 
 
 #Create a student and return its ID
 @app.route('/', methods=['POST'])
-def post():
+def Create():
     try:
-        new_person = Student(**request.json)
-        new_person.save()
-        return {"msg": "Success", "status": 1, "data": [new_person.pk]}
-    except (Exception, ValidationError) as error_message:
-        return {"msg":  str(error_message), "status": 0, "data": []}
+        data = request.json
+        return Student.Create(data)
+    except Exception as error_message:
+        return {"data": [], "msg": str(error_message), "status": 0}
 
 
 #Update a student by ID
 @app.route('/<id>', methods=['PUT'])
 def put(id):
-    try:
-        student = Student.get(id)
-        changes = request.json
-        print(changes)
-        for key, value in changes.items():
-            setattr(student, key, value)
-        student.save()
-        return {"msg": "Success", "status": 1, "data": []}
-    except (Exception, NotFoundError, ValidationError) as error_message:
-        if len(str(error_message)) == 0:  #NotFoundError did not return anything
-            return {"msg": "NotFoundError", "status": 0, "data": []}
-        else:
-            return {"msg": str(error_message), "status": 0, "data": []}
+    return "Coming soon..."
 
 
 #Delete a student by ID
 @app.route('/<id>', methods=['DELETE'])
 def delete(id):
-    try:
-        result = Student.delete(id)
-        if result == 1:
-            return {"msg": "Success", "status": 1, "data": []}
-        else:
-            return {"msg": "NotFoundError", "status": 0, "data": []}
-
-    except Exception as error_message:
-        return {"msg": str(error_message), "status": 0, "data": []}
+    return "Coming soon..."
 
 
 if __name__ == "__main__":
