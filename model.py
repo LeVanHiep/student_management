@@ -1,3 +1,4 @@
+from unittest import result
 import redis
 
 r = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
@@ -37,28 +38,51 @@ class Student:
             with r.pipeline() as pipe:
                 #Create Redis hash for student, addresses and prize info
                 #its name format is "object-name:ID". ex: "student:5933"
-                pipe.hmset("student:"+data["id"], data)
-                pipe.hmset("address:"+permanent_address["id"], permanent_address)
-                pipe.hmset("address:"+birth_address["id"], birth_address)
-                pipe.lpush("prize:"+data["prize"], *prize)
+                pipe.hmset("student:" + data["id"], data)
+                pipe.hmset("address:" + permanent_address["id"], permanent_address)
+                pipe.hmset("address:" + birth_address["id"], birth_address)
+                pipe.sadd("prize:" + data["prize"], *prize)
 
-                # Create Redis list for indexing Student attribute
-                # Its name format is "object-name:attribute-name"
-                # Its value will be [ID, ID, ID, ...]
-                pipe.set("student:username-" + data["username"], data["id"])
-                pipe.lpush("student:name-" + data["name"], data["id"])
-                pipe.lpush("student:age-" + str(data["age"]), data["id"])
-                pipe.lpush("student:birth_address-city-" + birth_address["city"], data["id"])
+                # Create Redis indexes for Student attribute
+                # Its format name  is "object-name:attribute-name"
+                # Its value will be {ID, ID, ID, ...}
+                # Create a temp set to link all indexes with main student hash
+                temp_name = "temp:student:" + data["id"]
+                value = data["id"]
+
+                # username index set and temp set
+                key = "student:username-" + data["username"]
+                pipe.set(key, value)
+                pipe.sadd(temp_name, key)
+
+                # name index set and temp set
+                key = "student:name-" + data["name"]
+                pipe.sadd(key, value)
+                pipe.sadd(temp_name, key)
+
+                # age index set and temp set
+                key = "student:age-" + str(data["age"])
+                pipe.sadd(key, value)
+                pipe.sadd(temp_name, key)
+
+                # birth_address-city index set and temp set
+                key = "student:birth_address-city-" + birth_address["city"]
+                pipe.sadd(key, value)
+                pipe.sadd(temp_name, key)
+
+                # prize index set and temp set
                 for prize_name in prize:
-                    pipe.lpush("student:prize-" + prize_name, data["id"]) # ERROR: tao vong for index cho tung giai thuong mot
+                    key = "student:prize-" + prize_name
+                    pipe.sadd(key, data["id"])
+                    pipe.sadd(temp_name, key)
 
-                #Increasing next-ids in Redis
+                # Increasing next-ids in Redis
                 pipe.incr("next-id:student", 1)
                 pipe.incr("next-id:address", 2)
                 pipe.incr("next-id:prize", 1)
                 inserted_id = pipe.execute()
-                #r.bgsave()
-            return {"data": [inserted_id[-1]], "msg": "Success", "status": 1}
+                # r.bgsave()
+            return {"data": [inserted_id[-1]-1], "msg": "Success", "status": 1}
 
         except Exception as error_message:
             return {"data": [], "msg": str(error_message), "status": 0}
@@ -70,13 +94,7 @@ class Student:
         if student: #if student dict is not empty (empty dict = False)
             student["permanent_address"] = r.hgetall("address:" + student["permanent_address"])
             student["birth_address"] = r.hgetall("address:" + student["birth_address"])
-
-            prize_id = student["prize"]
-            student["prize"] = []
-            prize_list_len = r.llen("prize:" + prize_id)
-            for i in range(prize_list_len):
-                student["prize"].append(r.lindex("prize:" + prize_id, i))
-                print("prize: ", i)
+            student["prize"] = list(r.smembers("prize:" + student["prize"])) #set is not JSON serializable so we convert it to list
             return student
         
         else:
@@ -112,11 +130,10 @@ class Student:
     def GetByName(name):
         try:
             all_data = []
-            list_size = r.llen("student:name-" + name)
-            for i in range(list_size):  # student:name-abc [id, id, id , ...]
-                student_id = r.lindex("student:name-" + name, i)
-                student_data = Student.Merge(student_id)
-                all_data.append(student_data)
+            id_set = r.smembers("student:name-" + name)
+            for id in id_set:
+                data = Student.Merge(id)
+                all_data.append(data)
 
             return {"data": all_data, "msg": "Success", "status": 1}
 
@@ -126,30 +143,28 @@ class Student:
 
     # Get students by age in range
     def GetByAge(min_age, max_age):
-        try:
+        # try:
             all_data = []
-            for age in range(min_age, max_age+1):   # [20 21 22 23]
-                age_size = r.llen("student:age-" + str(age))
-                for i in range(age_size):  # student:age-20 [id, id, id , ...]
-                    student_id = r.lindex("student:age-" + str(age), i)
-                    student_data = Student.Merge(student_id)
-                    all_data.append(student_data)
+            for age in range(min_age, max_age + 1):
+                id_set = r.smembers("student:age-" + str(age))
+                for id in id_set:
+                    data = Student.Merge(id)
+                    all_data.append(data)
 
             return {"data": all_data, "msg": "Success", "status": 1}
 
-        except Exception as error_message:
-            return {"data": [], "msg": str(error_message), "status": 0}
+        # except Exception as error_message:
+        #     return {"data": [], "msg": str(error_message), "status": 0}
 
 
     # Get students by birth_address city
     def GetByBirthAddressCity(city):
         try:
             all_data = []
-            list_size = r.llen("student:birth_address-city-" + city)
-            for i in range(list_size):  # student:birth_address-city [id, id, id , ...]
-                student_id = r.lindex("student:birth_address-city-" + city, i)
-                student_data = Student.Merge(student_id)
-                all_data.append(student_data)
+            id_set = r.smembers("student:birth_address-city-" + city)
+            for id in id_set:
+                data = Student.Merge(id)
+                all_data.append(data)
 
             return {"data": all_data, "msg": "Success", "status": 1}
 
@@ -161,20 +176,67 @@ class Student:
     def GetByPrize(prize):
         try:
             all_data = []
-            list_size = r.llen("student:prize-" + prize)
-            for i in range(list_size):  # student:birth_address-prize [id, id, id , ...]
-                student_id = r.lindex("student:prize-" + prize, i)
-                student_data = Student.Merge(student_id)
-                all_data.append(student_data)
+            id_set = r.smembers("student:prize-" + prize)
+            for id in id_set:
+                data = Student.Merge(id)
+                all_data.append(data)
 
             return {"data": all_data, "msg": "Success", "status": 1}
 
         except Exception as error_message:
             return {"data": [], "msg": str(error_message), "status": 0}
 
+    #Update a student's name by ID
+    def UpdateNameByID(id, new_name):
+        # try:
+            with r.pipeline() as pipe:
+                old_name = r.hget("student:" + id, "name")
+                if old_name is None:
+                    return {"data": [], "msg": "Student does not exist", "status": 0}
+                else:
+                    old_index_key = "student:name-" + old_name
+                    pipe.srem(old_index_key, id)    # remove this student ID from old name index set
+                    pipe.srem("temp:student" + id, old_index_key)   # remove name key in temp set
+
+                    pipe.hset("student:" + id, "name", new_name)    #update student name
+
+                    new_index_key = "student:name-" + new_name
+                    pipe.sadd(new_index_key, id)    # add this ID to new name index set
+                    pipe.sadd("temp:student" + id, new_index_key)   #add name key in temp set
+
+                    result = pipe.execute()
+
+            return {"data": [result[-1]], "msg": "Success", "status": 1}
+
+        # except Exception as error_message:
+        #     return {"data": [], "msg": str(error_message), "status": 0}
+
+    # Delete a student by ID
+    def DeleteByID(id):
+        # try:
+            with r.pipeline() as pipe:
+                index_set = r.smembers("temp:student:" + id)    #get all indexes in temp set
+                for index in index_set: 
+                    if r.type(index) == "set":
+                        pipe.srem(index, id)   #remove this ID from all index set
+                    else:   #string value
+                        pipe.delete(index)
+                
+                pipe.delete("temp:student:" + id)  #remove temp set
+                address_id = r.hget("student:" + id, "permanent_address")
+                if address_id is None:
+                    return {"data": [], "msg": "Student does not exist", "status": 0}
+                pipe.delete("address:" + address_id)  # delete permanent_address hash
+                pipe.delete("address:" + r.hget("student:" + id, "birth_address"))  # delete birth_address hash
+                pipe.delete("prize:" + r.hget("student:" + id, "prize"))    # delete prize set
+                pipe.delete("student:" + id)    #delete student hash
+
+                result = pipe.execute()
+
+            return {"data": [result[-1]], "msg": "Success", "status": 1}
+
+        # except Exception as error_message:
+        #     return {"data": [], "msg": str(error_message), "status": 0}
 
 
 
-
-
-# print(Student.GetByID(1))

@@ -41,7 +41,7 @@ data = [
         "gender" : "nữ",
         "grade" : "DHKTPM02",
         "school_year" : 14,
-        "age" : 21,
+        "age" : 22,
         "permanent_address":
         {
             "unit" : "124A",
@@ -75,7 +75,7 @@ data = [
         "gender" : "nam",
         "grade" : "DHKTPM01",
         "school_year" : 1,
-        "age" : 32,
+        "age" : 22,
         "permanent_address":
         {
             "unit" : "2A",

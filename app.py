@@ -59,16 +59,16 @@ def Create():
         return {"data": [], "msg": str(error_message), "status": 0}
 
 
-#Update a student by ID
-@app.route('/<id>', methods=['PUT'])
-def put(id):
-    return "Coming soon..."
+#Update a student's name by ID
+@app.route('/<id>/<name>', methods=['PUT'])
+def UpdateNameByID(id,name):
+    return Student.UpdateNameByID(id, name)
 
 
 #Delete a student by ID
 @app.route('/<id>', methods=['DELETE'])
 def delete(id):
-    return "Coming soon..."
+    return Student.DeleteByID(id)
 
 
 if __name__ == "__main__":
