@@ -7,3 +7,4 @@ Basic set a object:                                     set object_name objetc_v
 Basic get a objetc:                                     get object_name
 Exit redis-cli(command line interface)                  exit
 Shutdown Redis sever:                                   redis-cli shutdown
+rq worker --with-scheduler --path /mnt/d/Programming/Vccorp/student_management/
