@@ -1,7 +1,8 @@
-from unittest import result
-import redis
+from redis import Redis
+from rq import Queue
 
-r = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
+r = Redis(host="localhost", port=6379, db=0, decode_responses=True)
+q = Queue(connection=Redis())
 
 class Student:
     # Create a student (a hash for student data with id attribute linked to address hashes and prize list )
@@ -10,11 +11,11 @@ class Student:
             # Check if next-id key exist if not then create one an set its value to 1
             # next-id variable is used to set ID for object in Redis
             if not r.exists("next-id:student"):
-                r.set("next-id:student",1)
+                r.set("next-id:student", 1)
             if not r.exists("next-id:address"):
-                r.set("next-id:address",1)
+                r.set("next-id:address", 1)
             if not r.exists("next-id:prize"):
-                r.set("next-id:prize",1)
+                r.set("next-id:prize", 1)
 
             # Separate address dict and prize list to another variable
             # because Redis hash cannot store complex dict contain list, dict, set inside
@@ -196,13 +197,13 @@ class Student:
                 else:
                     old_index_key = "student:name-" + old_name
                     pipe.srem(old_index_key, id)    # remove this student ID from old name index set
-                    pipe.srem("temp:student" + id, old_index_key)   # remove name key in temp set
+                    pipe.srem("temp:student:" + id, old_index_key)   # remove name key in temp set
 
                     pipe.hset("student:" + id, "name", new_name)    #update student name
 
                     new_index_key = "student:name-" + new_name
                     pipe.sadd(new_index_key, id)    # add this ID to new name index set
-                    pipe.sadd("temp:student" + id, new_index_key)   #add name key in temp set
+                    pipe.sadd("temp:student:" + id, new_index_key)   #add name key in temp set
 
                     result = pipe.execute()
 
@@ -213,7 +214,7 @@ class Student:
 
     # Delete a student by ID
     def DeleteByID(id):
-        # try:
+        try:
             with r.pipeline() as pipe:
                 index_set = r.smembers("temp:student:" + id)    #get all indexes in temp set
                 for index in index_set: 
@@ -235,8 +236,30 @@ class Student:
 
             return {"data": [result[-1]], "msg": "Success", "status": 1}
 
-        # except Exception as error_message:
-        #     return {"data": [], "msg": str(error_message), "status": 0}
+        except Exception as error_message:
+            return {"data": [], "msg": str(error_message), "status": 0}
 
 
+class Message:
+    # Create a message with data = {"id": "recieve_student_id", "data": "message_content", "send_time": "HH:MM dd/mm/yyyy"}
+    def Create(data):
+        try:
+            if r.exists("student:" + data["id"]):
+                result = r.lpush("message:" + data["id"], data["message"])
+                return {"data": [result], "msg": "Success", "status": 1}
+                
+            else:
+                return {"data": [], "msg": "Student does not exist", "status": 1}
+                
+        except Exception as error_message:
+            return {"data": [], "msg": str(error_message), "status": 0}
+
+    # Get message list of student with ID
+    def GetByID(id):
+        try:
+            message_list = list(r.lrange("message:" + id, 0, -1))
+            return {"data": message_list, "msg": "Success", "status": 1}
+
+        except Exception as error_message:
+            return {"data": [], "msg": str(error_message), "status": 0}
 
