@@ -1,13 +1,14 @@
 from redis import Redis
-from rq import Queue
+from json import dumps, loads
 
 r = Redis(host="localhost", port=6379, db=0, decode_responses=True)
-q = Queue(connection=Redis())
 
 class Student:
     # Create a student (a hash for student data with id attribute linked to address hashes and prize list )
     def Create(data):
         try:
+            if type(data) is str:
+                data = loads(data)
             # Check if next-id key exist if not then create one an set its value to 1
             # next-id variable is used to set ID for object in Redis
             if not r.exists("next-id:student"):
@@ -143,8 +144,10 @@ class Student:
 
 
     # Get students by age in range
-    def GetByAge(min_age, max_age):
+    def GetByAge(data):
         # try:
+            max_age = int(data[0])
+            min_age = int(data[1])
             all_data = []
             for age in range(min_age, max_age + 1):
                 id_set = r.smembers("student:age-" + str(age))
@@ -188,8 +191,10 @@ class Student:
             return {"data": [], "msg": str(error_message), "status": 0}
 
     #Update a student's name by ID
-    def UpdateNameByID(id, new_name):
+    def UpdateNameByID(data):
         # try:
+            id = data[1]
+            new_name = data[0]
             with r.pipeline() as pipe:
                 old_name = r.hget("student:" + id, "name")
                 if old_name is None:
@@ -244,6 +249,7 @@ class Message:
     # Create a message with data = {"id": "recieve_student_id", "data": "message_content", "send_time": "HH:MM dd/mm/yyyy"}
     def Create(data):
         try:
+            data = loads(data)
             if r.exists("student:" + data["id"]):
                 result = r.lpush("message:" + data["id"], data["message"])
                 return {"data": [result], "msg": "Success", "status": 1}
@@ -263,3 +269,93 @@ class Message:
         except Exception as error_message:
             return {"data": [], "msg": str(error_message), "status": 0}
 
+
+class Job:
+    def Create(object, method, args):
+        id = "1"
+        if not r.exists("next-id:job"):
+            r.set("next-id:job", 1)
+        else:
+            id = r.get("next-id:job")
+
+        r.hset("job:" + id, "object", object)
+        r.hset("job:" + id, "method", method)
+        for arg in args:
+            if type(arg) is not str:
+                arg = dumps(arg, ensure_ascii=False).encode('utf8')    # covert arg to string with encode utf 8
+            
+            r.lpush("job:" + id + ":arg", arg)
+        
+        r.incr("next-id:job")
+        r.sadd("job:queue", id)
+
+        return id
+
+
+    def DeleteByID(id):
+        r.srem("job:queue", id)
+        r.delete("job:" + id)
+        r.delete("job:" + id + ":arg")
+        return 1
+
+    def Exist():
+        return r.exists("job:queue")
+
+    def GetAllID():
+        return r.smembers("job:queue")
+
+    def GetByID(id):
+        job = r.hgetall("job:" + id)
+        job_args = r.lrange("job:" + id + ":arg", 0, -1)
+        job["args"] = job_args
+        return job
+
+    def CreateResult(id, result):
+        r.set("job: " + id + ":result", result)
+        r.expire("job: " + id + ":result", 300)
+        return 1
+    
+    def GetResult(id):
+        return r.get("job: " + id + ":result")
+
+    def DeleteResult(id):
+        return r.delete("job: " + id + ":result")
+
+data = {
+        "username" : "ha",
+        "password" : "12345678",
+        "name" : "Lê Văn Hảo",
+        "gender" : "nam",
+        "grade" : "DHKTPM01",
+        "school_year" : 13,
+        "age" : 22,
+        "permanent_address":
+        {
+            "unit" : "12/1A",
+            "street" : "Đình Thôn",
+            "ward": "Mỹ Đình",
+            "district" : "Nam Từ Liêm",
+            "city" : "Hà Nội",
+            "country" : "Việt Nam"
+        },
+        "birth_address" :
+        {
+            "unit" : "123/1A",
+            "street" : "Đình Thôn",
+            "ward": "Mỹ Đình",
+            "district" : "Nam Từ Liêm",
+            "city" : "Hà Nội",
+            "country" : "Thanh Hóa"
+        },
+        "prize" :
+        [
+            "Giải nhất cuộc thi AI Tank - IT Festival",
+            "Giải nhất cuộc thi ABC"
+        ]
+    }
+# print(Job.Create("Student", "Create", [data]))
+# print(Job.Create("Student", "Create", [data]))
+# print(Job.Create("Student", "Create", [data]))
+# print(Job.Create("Student", "Create", [data]))
+# print(Job.DeleteByID("3"))
+# print(Job.GetResult("8"))
