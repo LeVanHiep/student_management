@@ -1,13 +1,13 @@
 from flask import Flask, request
-from model import Student, Message, Job
+from model import Job
 
 # Wait worker done the job and return Redis string for result
 # After that delete result string
-def Result(id):
-    while Job.GetResult(id) is None:
+def result(id):
+    while Job.get_result(id) is None:
         pass
-    result = Job.GetResult(id)
-    Job.DeleteResult(id)
+    result = Job.get_result(id)
+    Job.delete_result(id)
     return result
 app = Flask(__name__) 
 
@@ -19,73 +19,73 @@ def homepage():
 
 #Get a student by ID
 @app.route('/<id>', methods=['GET'])
-def GetByID(id):
-    id = Job.Create("Student","GetByID", [id])
-    return Result(id)
+def get_by_id(id):
+    id = Job.create("Student","get_by_id", [id])
+    return result(id)
 
 #Find a student by username
 @app.route('/find/username/<value>', methods=['GET'])
-def GetByUsername(value):
-    id = Job.Create("Student","GetByUsername", [value])
-    return Result(id)
+def get_by_username(value):
+    id = Job.create("Student","get_by_username", [value])
+    return result(id)
 
 #Find students by name
 @app.route('/find/name/<value>', methods=['GET'])
-def GetByName(value):
-    id = Job.Create("Student","GetByName", [value])
-    return Result(id)
+def get_by_name(value):
+    id = Job.create("Student","get_by_name", [value])
+    return result(id)
 
 #Find students by age in range
 @app.route('/find/age/<min_value>/<max_value>', methods=['GET'])
-def GetByAge(min_value, max_value):
-    id = Job.Create("Student","GetByAge", [min_value, max_value])
-    return Result(id)
+def get_by_age(min_value, max_value):
+    id = Job.create("Student","get_by_age", [min_value, max_value])
+    return result(id)
 
 
 #Find students by a prize in their prize list
 @app.route('/find/prize/<value>', methods=["GET"])
-def GetByPrize(value):
-    id = Job.Create("Student","GetByPrize", [value])
-    return Result(id)
+def get_by_prize(value):
+    id = Job.create("Student","get_by_prize", [value])
+    return result(id)
 
 
 #Find students by birth address city
 @app.route('/find/city/<value>', methods=["GET"])
-def GetByBirthAddressCity(value):
-    id = Job.Create("Student","GetByBirthAddressCity", [value])
-    return Result(id)
+def get_by_birthaddresscity(value):
+    id = Job.create("Student","get_by_birthaddresscity", [value])
+    return result(id)
 
 
-#Create a student and return its ID
+#create a student and return its ID
 @app.route('/', methods=['POST'])
-def Create():
+def create():
     try:
         data = request.json
-        id = Job.Create("Student","Create", [data])
-        return Result(id)
+        id = Job.create("Student","create", [data])
+        return result(id)
     except Exception as error_message:
         return {"data": [], "msg": str(error_message), "status": 0}
 
 
 #Update a student's name by ID
 @app.route('/<id>/<name>', methods=['PUT'])
-def UpdateNameByID(id,name):
-    id = Job.Create("Student","UpdateNameByID", [id, name])
-    return Result(id)
+def update_name_by_id(id,name):
+    id = Job.create("Student","update_name_by_id", [id, name])
+    return result(id)
 
 
 #Delete a student by ID
 @app.route('/<id>', methods=['DELETE'])
-def delete(id):
-    id = Job.Create("Student","DeleteByID", [id])
-    return Result(id)
+def delete_by_id(id):
+    id = Job.create("Student","DeleteByID", [id])
+    return result(id)
 
-# Create a message and send to a student at time
+# create a message and send to a student at time
 @app.route('/message', methods=['POST'])
 def create_message():
     try:
         data = request.json
-        id = Job.Create("Message","Create", [data])
+        id = Job.create("Message","create", [data], schedule=True)
         return {"data": [id], "msg": "success", "status": 1}
 
     except Exception as error_message:
@@ -94,8 +94,8 @@ def create_message():
 
 @app.route('/message/<id>', methods=['GET'])
 def get_message(id):
-    id = Job.Create("Message","GetByID", [id])
-    return Result(id)
+    id = Job.create("Message","get_by_id", [id])
+    return result(id)
 
 
 if __name__ == "__main__":

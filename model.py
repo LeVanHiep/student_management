@@ -5,7 +5,7 @@ r = Redis(host="localhost", port=6379, db=0, decode_responses=True)
 
 class Student:
     # Create a student (a hash for student data with id attribute linked to address hashes and prize list )
-    def Create(data):
+    def create(data):
         try:
             if type(data) is str:
                 data = loads(data)
@@ -90,8 +90,8 @@ class Student:
             return {"data": [], "msg": str(error_message), "status": 0}
 
 
-    # Merge a student information from student hash, addresses hash and prize list
-    def Merge(id):
+    # merge a student information from student hash, addresses hash and prize list
+    def merge(id):
         student = r.hgetall("student:" + id)
         if student: #if student dict is not empty (empty dict = False)
             student["permanent_address"] = r.hgetall("address:" + student["permanent_address"])
@@ -104,9 +104,9 @@ class Student:
             
 
     # Get a student by ID
-    def GetByID(id):
+    def get_by_id(id):
         try:
-            student_data = Student.Merge(id)
+            student_data = Student.merge(id)
             return {"data": [student_data], "msg": "Success", "status": 1}
 
         except Exception as error_message:
@@ -114,11 +114,11 @@ class Student:
 
 
     # Get a student by username
-    def GetByUsername(username):
+    def get_by_username(username):
         try:
             student_id = r.get("student:username-" + username)
             if student_id is not None:
-                student_data = Student.Merge(student_id)
+                student_data = Student.merge(student_id)
                 return {"data": [student_data], "msg": "Success", "status": 1}
 
             else:
@@ -129,12 +129,12 @@ class Student:
 
 
     # Get a student by name
-    def GetByName(name):
+    def get_by_name(name):
         try:
             all_data = []
             id_set = r.smembers("student:name-" + name)
             for id in id_set:
-                data = Student.Merge(id)
+                data = Student.merge(id)
                 all_data.append(data)
 
             return {"data": all_data, "msg": "Success", "status": 1}
@@ -144,30 +144,30 @@ class Student:
 
 
     # Get students by age in range
-    def GetByAge(data):
-        # try:
+    def get_by_age(data):
+        try:
             max_age = int(data[0])
             min_age = int(data[1])
             all_data = []
             for age in range(min_age, max_age + 1):
                 id_set = r.smembers("student:age-" + str(age))
                 for id in id_set:
-                    data = Student.Merge(id)
+                    data = Student.merge(id)
                     all_data.append(data)
 
             return {"data": all_data, "msg": "Success", "status": 1}
 
-        # except Exception as error_message:
-        #     return {"data": [], "msg": str(error_message), "status": 0}
+        except Exception as error_message:
+            return {"data": [], "msg": str(error_message), "status": 0}
 
 
     # Get students by birth_address city
-    def GetByBirthAddressCity(city):
+    def get_by_birthaddresscity(city):
         try:
             all_data = []
             id_set = r.smembers("student:birth_address-city-" + city)
             for id in id_set:
-                data = Student.Merge(id)
+                data = Student.merge(id)
                 all_data.append(data)
 
             return {"data": all_data, "msg": "Success", "status": 1}
@@ -177,12 +177,12 @@ class Student:
 
 
     # Get students by contain a prize
-    def GetByPrize(prize):
+    def get_by_prize(prize):
         try:
             all_data = []
             id_set = r.smembers("student:prize-" + prize)
             for id in id_set:
-                data = Student.Merge(id)
+                data = Student.merge(id)
                 all_data.append(data)
 
             return {"data": all_data, "msg": "Success", "status": 1}
@@ -191,7 +191,7 @@ class Student:
             return {"data": [], "msg": str(error_message), "status": 0}
 
     #Update a student's name by ID
-    def UpdateNameByID(data):
+    def update_name_by_id(data):
         # try:
             id = data[1]
             new_name = data[0]
@@ -218,7 +218,7 @@ class Student:
         #     return {"data": [], "msg": str(error_message), "status": 0}
 
     # Delete a student by ID
-    def DeleteByID(id):
+    def delete_by_id(id):
         try:
             with r.pipeline() as pipe:
                 index_set = r.smembers("temp:student:" + id)    #get all indexes in temp set
@@ -247,7 +247,7 @@ class Student:
 
 class Message:
     # Create a message with data = {"id": "recieve_student_id", "data": "message_content", "send_time": "HH:MM dd/mm/yyyy"}
-    def Create(data):
+    def create(data):
         try:
             data = loads(data)
             if r.exists("student:" + data["id"]):
@@ -261,7 +261,7 @@ class Message:
             return {"data": [], "msg": str(error_message), "status": 0}
 
     # Get message list of student with ID
-    def GetByID(id):
+    def get_by_id(id):
         try:
             message_list = list(r.lrange("message:" + id, 0, -1))
             return {"data": message_list, "msg": "Success", "status": 1}
@@ -271,7 +271,7 @@ class Message:
 
 
 class Job:
-    def Create(object, method, args):
+    def create(object, method, args, schedule = False):
         id = "1"
         if not r.exists("next-id:job"):
             r.set("next-id:job", 1)
@@ -287,75 +287,51 @@ class Job:
             r.lpush("job:" + id + ":arg", arg)
         
         r.incr("next-id:job")
-        r.sadd("job:queue", id)
+        if schedule:
+            r.rpush("job:schedulequeue", id)
+        else:
+            r.rpush("job:queue", id)
+
 
         return id
 
 
-    def DeleteByID(id):
-        r.srem("job:queue", id)
+    def delete_by_id(id, schedule = False):
+        
+        if schedule:
+            r.lpop("job:schedulequeue")
+        else:
+            r.lpop("job:queue")
         r.delete("job:" + id)
         r.delete("job:" + id + ":arg")
         return 1
 
-    def Exist():
-        return r.exists("job:queue")
+    def exist(schedule = False):
+        if schedule:
+            return r.exists("job:schedulequeue")
+        else:
+            return r.exists("job:queue")
 
-    def GetAllID():
-        return r.smembers("job:queue")
+    def get_all_id(schedule = False):
+        if schedule:
+            return r.lrange("job:schedulequeue", 0, -1)
+        else:
+            return r.lrange("job:queue", 0, -1)
 
-    def GetByID(id):
+    def get_by_id(id):
         job = r.hgetall("job:" + id)
         job_args = r.lrange("job:" + id + ":arg", 0, -1)
         job["args"] = job_args
         return job
 
-    def CreateResult(id, result):
-        r.set("job: " + id + ":result", result)
-        r.expire("job: " + id + ":result", 300)
+    def create_result(id, result):
+        r.set("job:" + id + ":result", result)
+        r.expire("job:" + id + ":result", 120)  #result usually deleted when client recieve it but sometimes they cancel waiting process so we need to remove
         return 1
     
-    def GetResult(id):
-        return r.get("job: " + id + ":result")
+    def get_result(id):
+        return r.get("job:" + id + ":result")
 
-    def DeleteResult(id):
-        return r.delete("job: " + id + ":result")
+    def delete_result(id):
+        return r.delete("job:" + id + ":result")
 
-data = {
-        "username" : "ha",
-        "password" : "12345678",
-        "name" : "Lê Văn Hảo",
-        "gender" : "nam",
-        "grade" : "DHKTPM01",
-        "school_year" : 13,
-        "age" : 22,
-        "permanent_address":
-        {
-            "unit" : "12/1A",
-            "street" : "Đình Thôn",
-            "ward": "Mỹ Đình",
-            "district" : "Nam Từ Liêm",
-            "city" : "Hà Nội",
-            "country" : "Việt Nam"
-        },
-        "birth_address" :
-        {
-            "unit" : "123/1A",
-            "street" : "Đình Thôn",
-            "ward": "Mỹ Đình",
-            "district" : "Nam Từ Liêm",
-            "city" : "Hà Nội",
-            "country" : "Thanh Hóa"
-        },
-        "prize" :
-        [
-            "Giải nhất cuộc thi AI Tank - IT Festival",
-            "Giải nhất cuộc thi ABC"
-        ]
-    }
-# print(Job.Create("Student", "Create", [data]))
-# print(Job.Create("Student", "Create", [data]))
-# print(Job.Create("Student", "Create", [data]))
-# print(Job.Create("Student", "Create", [data]))
-# print(Job.DeleteByID("3"))
-# print(Job.GetResult("8"))
